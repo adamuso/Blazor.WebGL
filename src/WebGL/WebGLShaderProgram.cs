@@ -5,7 +5,7 @@ namespace Blazor.WebGL
 {
     public class WebGLShaderProgram
     {
-        private Dictionary<string, long> locations;
+        private Dictionary<string, WebGLAttributeLocation> locations;
 
         public int Id { get; private set; }
         internal WebGLContext Context { get; set; }
@@ -14,7 +14,7 @@ namespace Blazor.WebGL
         {
             this.Context = context;
             this.Id = id;
-            this.locations = new Dictionary<string, long>();
+            this.locations = new Dictionary<string, WebGLAttributeLocation>();
         }
 
         public void Attach(WebGLShader shader)
@@ -22,10 +22,10 @@ namespace Blazor.WebGL
             Context.InvokeCanvasMethod<object>(1, Id, "attachShader", new object[] { new ContextObject(0, shader.Id) });
         }
 
-        public long Attribute(string name)
+        public WebGLAttributeLocation Attribute(string name)
         {
             if(!locations.ContainsKey(name))
-                locations.Add(name, Context.InvokeCanvasMethod<long>(1, Id, "getAttribLocation", new object[] { name }));
+                locations.Add(name, new WebGLAttributeLocation(this, Context.InvokeCanvasMethod<long>(1, Id, "getAttribLocation", new object[] { name })));
 
             return locations[name];
         }

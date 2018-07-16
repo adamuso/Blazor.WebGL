@@ -31,14 +31,26 @@ namespace Blazor.WebGL
         private const string MethodPrefix = "Blazor.WebGL.WebGLContext.";
 
         private bool loopingEnabled;
+        private Rectangle viewport;
         private WebGLBuffer currentlyBoundArrayBuffer;
         private WebGLBuffer currentlyBoundElementArrayBuffer;
         private WebGLShaderProgram currentlyUsedShaderProgram;
 
         private int Id { get; set; }
 
-        public int Width { get { return 400; } }
-        public int Height { get { return 400; } }
+        public int Width { get; private set; }
+        public int Height { get; private set; }
+
+        public Rectangle Viewport 
+        {
+            get { return viewport; }
+            set 
+            {
+                SetViewport(Viewport);
+                viewport = value;
+            }
+        }
+
         public bool IsLoopingEnabled 
         { 
             get { return loopingEnabled; }
@@ -55,8 +67,11 @@ namespace Blazor.WebGL
         
         public event Action<float> Updated;
 
-        internal void Initialize(ElementRef canvas)
+        internal void Initialize(ElementRef canvas, int width, int height)
         {
+            Width = width;
+            Height = height;
+
             Id = RegisteredFunction.Invoke<int>(MethodPrefix + "RegisterCanvasElement", canvas);
             contexts.Add(Id, this);
         }
@@ -102,7 +117,7 @@ namespace Blazor.WebGL
             //InvokeCanvasMethod("clear", new object[] { (int)what });
         }
         
-        public void Viewport(Rectangle rectangle)
+        internal void SetViewport(Rectangle rectangle)
         {
             InvokeCanvasMethodUnmarshalled<object>(UnmarshalledCanvasMethod.Viewport, rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height);
             //InvokeCanvasMethod("viewport", new object[] { rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height });
@@ -139,7 +154,7 @@ namespace Blazor.WebGL
             return new WebGLShaderProgram(this, programId);
         }
 
-        public void SetProgramUniform(WebGLUniformLocation location, int dimensions, string type, object value)
+        private void SetProgramUniformOld(WebGLUniformLocation location, int dimensions, string type, object value)
         {
             if(currentlyUsedShaderProgram != location.Program)
                 throw new WebGLException("Program of this location is not bound.");
@@ -206,7 +221,7 @@ namespace Blazor.WebGL
             InvokeCanvasMethod("uniform" + dimensions + type, args);
         }
 
-        internal void SetProgramUniform2(WebGLUniformLocation location, int dimensions, string type, object value)
+        internal void SetProgramUniform(WebGLUniformLocation location, int dimensions, string type, object value)
         {
             if(currentlyUsedShaderProgram != location.Program)
                 throw new WebGLException("Program of this location is not bound.");
@@ -309,7 +324,7 @@ namespace Blazor.WebGL
                 new object[] { (int)buffer.Type, new ContextObject(ContextType.WrapIntoUInt16Array, data), (int)usage });
         }
 
-        public void VertexAttributePointer(long index, int size, WebGLType type, bool normalized, int stride, int offset)
+        internal void VertexAttributePointer(long index, int size, WebGLType type, bool normalized, int stride, int offset)
         {
             int normalizedInt = normalized ? 0 : 1;
 
@@ -317,7 +332,7 @@ namespace Blazor.WebGL
             // InvokeCanvasMethod("vertexAttribPointer", new object[] { index, size, (int)type, normalized, stride, offset });
         }
 
-        public void EnableVertexAttributeArray(long index)
+        internal void EnableVertexAttributeArray(long index)
         {
             InvokeCanvasMethodUnmarshalled<object>(UnmarshalledCanvasMethod.EnableVertexAttributeArray, index);
             //InvokeCanvasMethod("enableVertexAttribArray", new object[] { index });
@@ -356,13 +371,13 @@ namespace Blazor.WebGL
                 Console.WriteLine("Status: " + progress.Status);
     
                 Console.WriteLine("Loaded");
-                Texture2D texture = new Texture2D(textureId);
+                Texture2D texture = new Texture2D(this, textureId);
 
                 return texture;
             });
         }
 
-        public void BindTexture(Texture2D texture)
+        internal void BindTexture(Texture2D texture)
         {
             InvokeCanvasMethodUnmarshalled<object>(UnmarshalledCanvasMethod.BindTexture, texture.Id);
         }

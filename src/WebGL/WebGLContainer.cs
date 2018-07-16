@@ -11,16 +11,23 @@ namespace Blazor.WebGL
 
         protected ElementRef Canvas { get; set; }
 
-        public WebGLContext Context { get; set; }
+        public WebGLContext Context { get; private set; }
+
+        [Parameter]
+        public int Width { get; set; }
+        [Parameter]
+        public int Height { get; set; }
 
         public WebGLContainer()
         {
             Context = new WebGLContext();
+            Width = 400;
+            Height = 400;
         }
 
         protected override void OnAfterRender()
         {
-            Context.Initialize(Canvas);
+            Context.Initialize(Canvas, Width, Height);
             
             Context.ClearColor(new Color(0, 0, 0, 1));
             Context.Enable(WebGLOption.DEPTH_TEST);
