@@ -1,0 +1,1 @@
+tsc -p src/WebGL/JS && dotnet build;
