@@ -40,3 +40,15 @@ namespace TestProject
     }
 }
 ```
+
+## Building
+
+You will need: 
+* [.NET Core 2.1.300](https://www.microsoft.com/net/download/windows) (or newer)
+* [Node.js](https://nodejs.org/en/)
+* typescript (type `npm install -g typescript` in a console after installing Node.js)
+* [Visual Studio Code](https://code.visualstudio.com/download)
+
+Open repository in VS Code. Use `Ctrl+Shift+B` to run build task and choose `build - Blazor.WebGL` task. 
+
+You are ready to go! Now go and build [examples](examples/TestGame). 
