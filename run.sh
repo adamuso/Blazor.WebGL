@@ -1,1 +1,1 @@
-tsc -p src/WebGL/JS && dotnet run;
+tsc -p src/Blazor.WebGL/JS && dotnet run src/Blazor.WebGL;

@@ -1,6 +1,6 @@
 {
     "compilerOptions": {
-        "outFile": "../../../content/webgl.js"
+        "outFile": "../content/webgl.js"
     },
     "include": [
         "src/**.ts"

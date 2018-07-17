@@ -9,8 +9,8 @@
 
 # End of https://www.gitignore.io/api/visualstudiocode
 
-bin/*
-obj/*
-content/*
+**/bin/*
+**/obj/*
+**/content/*
 
-publish-local.sh
+nuget-local

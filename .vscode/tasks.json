@@ -4,18 +4,39 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "build",
+            "label": "build - Blazor.WebGL",
             "type": "shell",
             "command": "./build.sh",
+            "problemMatcher": "$msCompile",
             "group": {
                 "isDefault": true,
                 "kind": "build"
             }
         },
         {
-            "label": "run",
+            "label": "build - TestGame",
             "type": "shell",
-            "command": "./run.sh",
+            "command": "dotnet build examples/TestGame",
+            "problemMatcher": "$msCompile",
+            "group": {
+                "isDefault": true,
+                "kind": "build"
+            }
+        },
+        {
+            "label": "rebuild - TestGame",
+            "type": "shell",
+            "command": "dotnet clean examples/TestGame; dotnet build examples/TestGame",
+            "problemMatcher": "$msCompile",
+            "group": {
+                "isDefault": true,
+                "kind": "build"
+            }
+        },
+        {
+            "label": "run - TestGame",
+            "type": "shell",
+            "command": "dotnet run --project examples/TestGame",
             "group": "none",
             "problemMatcher": "$msCompile"
         }
