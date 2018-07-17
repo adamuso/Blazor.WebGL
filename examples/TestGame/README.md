@@ -11,4 +11,8 @@ Firstly build the Blazor.WebGL library using VS Code tasks (use `Ctrl+Shift+B` c
 ./publish-local.sh
 ```
 
-Then using VS Code tasks (use `Ctrl+Shift+P` find `Tasks: Run task` command) execute `run - TestGame` task. 
+Then using VS Code tasks (use `Ctrl+Shift+P` find `Tasks: Run task` command) execute `build - TestGame` task. 
+
+## Running
+
+Using VS Code tasks execute `run - TestGame` task. Open your browser and go to the http://localhost:11510/ page.
