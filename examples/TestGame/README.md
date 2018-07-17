@@ -4,7 +4,9 @@ Not really a game right now, but this project is used to test the Blazor.WebGL l
 
 ## Building
 
-Firstly build the Blazor.WebGL library using VS Code tasks (use `Ctrl+Shift+B` choose `build - Blazor.WebGL` task). At the root of the repository run `publish-local.sh` script.
+**Building an example assumes that you already have [built Blazor.WebGL library](../../README.md#Building).**
+
+At the root of the repository run `publish-local.sh` script.
 
 ```sh
 # Run the publish script
