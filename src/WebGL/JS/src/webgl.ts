@@ -272,6 +272,10 @@ function timestamp()
         const contextHolder = canvasContexts[canvasId]; 
         const argumentStart = 2;
 
+        const isPowerOf2 = function(value) {
+            return (value & (value - 1)) == 0;
+        };
+
         if(methodId == 0) // clearDepth
         {
             var mode = Blazor.platform.readFloatField(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart]));
@@ -382,10 +386,6 @@ function timestamp()
         }
         else if(methodId == 13) // loadTexture
         {
-            const isPowerOf2 = function(value) {
-                return (value & (value - 1)) == 0;
-            };
-
             const context = contextHolder.Context;
             const uri = Blazor.platform.toJavaScriptString(arguments[argumentStart]);  
 
@@ -433,7 +433,22 @@ function timestamp()
                 }
 
                 const method = Blazor.platform.findMethod("Blazor.WebGL", "Blazor.WebGL", "WebGLContext", "SetProgress");
-                Blazor.platform.callMethod(method, null, [progressHandle]);
+                
+                var stack = Module.stackSave();
+
+                try
+                {
+                    var widthHandle = Module.stackAlloc(4);
+                    var heightHandle = Module.stackAlloc(4);
+                    Module.setValue(widthHandle, image.naturalWidth, "i32");
+                    Module.setValue(heightHandle, image.naturalHeight, "i32");
+
+                    Blazor.platform.callMethod(method, null, [progressHandle, widthHandle, heightHandle]);
+                }
+                finally
+                {
+                    Module.stackRestore(stack);
+                }        
             };
             image.src = uri;
           
@@ -474,6 +489,84 @@ function timestamp()
             else if(type == "fv")
                 contextHolder.Context["uniform" + dimensions + type].call(contextHolder.Context, 
                     contextHolder.Programs[programId].Uniforms[locationId], new Float32Array(args));
+        }
+        else if(methodId == 17) // createTexture
+        {
+            const context = contextHolder.Context;
+
+            const width = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart]));
+            const height = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 1]));
+            const textureFormat = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 2]));
+
+            const texture = context.createTexture();
+            context.bindTexture(context.TEXTURE_2D, texture);
+          
+            const srcFormat = context.RGBA;
+            const srcType = context.UNSIGNED_BYTE;
+            const pixel = new Uint8Array(width * height * 4); 
+
+            context.texImage2D(context.TEXTURE_2D, 0, textureFormat, width, height, 0, srcFormat, srcType, pixel);
+        
+            // WebGL1 has different requirements for power of 2 images
+            // vs non power of 2 images so check if the image is a
+            // power of 2 in both dimensions.
+            if (isPowerOf2(width) && isPowerOf2(height)) {
+                // Yes, it's a power of 2. Generate mips.
+                context.generateMipmap(context.TEXTURE_2D);
+            } else {
+                // No, it's not a power of 2. Turn of mips and set
+                // wrapping to clamp to edge
+                context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_S, context.CLAMP_TO_EDGE);
+                context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_T, context.CLAMP_TO_EDGE);
+                context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MIN_FILTER, context.LINEAR);
+            }
+
+            return putInFreeSpotInArray(contextHolder.Textures, texture);
+        }
+        else if(methodId == 18) // setData
+        {
+            const context = contextHolder.Context;
+
+            const textureId = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart]));
+            const width = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 1]));
+            const height = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 2]));
+            const textureFormat = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 3]));
+            
+            const srcFormat = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 4]));
+            const srcType = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 5]));
+
+            var dataCount = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 6]) + 4);
+            var dataStart = Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 6]) + 8;
+
+            var texture = contextHolder.Textures[textureId];
+            var pixel = new Uint8Array(width * height * 4);
+
+            context.bindTexture(context.TEXTURE_2D, texture);
+
+            for(var i = 0; i < dataCount; i++)
+            {
+                var data = Blazor.platform.readInt32Field(dataStart + i * 4);
+                pixel[i * 4] = data & 0xFF;
+                pixel[i * 4 + 1] = (data & 0xFF00) >> 8;
+                pixel[i * 4 + 2] = (data & 0xFF0000) >> 16;
+                pixel[i * 4 + 3] = ((data & 0xFF000000) >> 24) & 0xFF;
+            }
+            
+            context.texImage2D(context.TEXTURE_2D, 0, textureFormat, width, height, 0, srcFormat, srcType, pixel);
+
+            // WebGL1 has different requirements for power of 2 images
+            // vs non power of 2 images so check if the image is a
+            // power of 2 in both dimensions.
+            if (isPowerOf2(width) && isPowerOf2(height)) {
+                // Yes, it's a power of 2. Generate mips.
+                context.generateMipmap(context.TEXTURE_2D);
+            } else {
+                // No, it's not a power of 2. Turn of mips and set
+                // wrapping to clamp to edge
+                context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_S, context.CLAMP_TO_EDGE);
+                context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_T, context.CLAMP_TO_EDGE);
+                context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MIN_FILTER, context.LINEAR);
+            }
         }
     }
 

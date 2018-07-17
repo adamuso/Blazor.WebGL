@@ -51,6 +51,8 @@ namespace Blazor.WebGL
             }
         }
 
+        public ActiveTexture2DCollection Textures { get; private set; }
+
         public bool IsLoopingEnabled 
         { 
             get { return loopingEnabled; }
@@ -71,6 +73,8 @@ namespace Blazor.WebGL
         {
             Width = width;
             Height = height;
+
+            Textures = new ActiveTexture2DCollection(this, 32);
 
             Id = RegisteredFunction.Invoke<int>(MethodPrefix + "RegisterCanvasElement", canvas);
             contexts.Add(Id, this);
@@ -345,6 +349,8 @@ namespace Blazor.WebGL
         internal class LoadTextureProgress
         {
             public int Status { get; set; }
+            public int Width { get; set; }
+            public int Height { get; set; }
 
             public LoadTextureProgress(int test)
             {
@@ -352,10 +358,26 @@ namespace Blazor.WebGL
             }
         }
 
-        internal static void SetProgress(LoadTextureProgress progress)
+        internal static void SetProgress(LoadTextureProgress progress, int width, int height)
         {
             progress.Status = 1;
+            progress.Width = width;
+            progress.Height = height;
         }
+
+        internal int CreateTexture(int width, int height, PixelFormat format)
+        {
+            return InvokeCanvasMethodUnmarshalled<int>(UnmarshalledCanvasMethod.CreateTexture, width, height, format);
+        }
+
+        internal void SetTextureData(Texture2D texture, int width, int height, PixelFormat format, PixelFormat sourceFormat, PixelType soruceType, int[] data)
+        {
+            if(data.Length != width * height)
+                throw new ArgumentException("Data length must be equal to width times height", nameof(data));
+
+            InvokeCanvasMethodUnmarshalled<object>(UnmarshalledCanvasMethod.SetTextureData, texture.Id, width, height, format, sourceFormat, soruceType, data);
+        }
+
 
         public Task<Texture2D> LoadTextureAsync(string uri)
         {
@@ -371,7 +393,7 @@ namespace Blazor.WebGL
                 Console.WriteLine("Status: " + progress.Status);
     
                 Console.WriteLine("Loaded");
-                Texture2D texture = new Texture2D(this, textureId);
+                Texture2D texture = new Texture2D(this, textureId, progress.Width, progress.Height);
 
                 return texture;
             });
@@ -382,7 +404,7 @@ namespace Blazor.WebGL
             InvokeCanvasMethodUnmarshalled<object>(UnmarshalledCanvasMethod.BindTexture, texture.Id);
         }
 
-        public void ActiveTexture(WebGLTextureIndex index)
+        internal void ActiveTexture(WebGLTextureIndex index)
         {
             InvokeCanvasMethodUnmarshalled<object>(UnmarshalledCanvasMethod.ActiveTexture, index);   
         }
@@ -445,7 +467,9 @@ namespace Blazor.WebGL
             LoadTexture = 13,
             BindTexture = 14,
             ActiveTexture = 15,
-            Uniform1234fiv = 16
+            Uniform1234fiv = 16,
+            CreateTexture = 17,
+            SetTextureData = 18
         }
     }
 }
