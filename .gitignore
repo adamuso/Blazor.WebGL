@@ -13,4 +13,4 @@
 **/obj/*
 **/content/*
 
-nuget-local
+nuget-local/**
