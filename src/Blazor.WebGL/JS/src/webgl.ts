@@ -15,6 +15,8 @@ var Module : {
     stackRestore(stack : any);
     stackAlloc(bytes : number) : number;
     setValue(handle : number, value : any, type : string);
+    HEAP8 : Int8Array;
+    asmLibraryArg : any;
 }
 
 var Blazor : { 
@@ -49,7 +51,7 @@ function timestamp()
 
     Blazor.registerFunction("Blazor.WebGL.WebGLContext.RegisterCanvas", registerCanvasFromId); 
     Blazor.registerFunction("Blazor.WebGL.WebGLContext.RegisterCanvasElement", registerCanvas); 
-    Blazor.registerFunction("Blazor.WebGL.WebGLContext.InvokeUnmarshalled", invokeUnmarshalled);
+    Blazor.registerFunction("G", invokeUnmarshalled);
     Blazor.registerFunction("Blazor.WebGL.WebGLContext.Invoke", invoke);
     Blazor.registerFunction("Blazor.WebGL.WebGLContext.InvokeWithContext", invokeWithContext);
     Blazor.registerFunction("Blazor.WebGL.WebGLContext.CreateShader", createShader);
@@ -58,6 +60,15 @@ function timestamp()
     Blazor.registerFunction("Blazor.WebGL.WebGLContext.StartLoop", startLoop);
     Blazor.registerFunction("Blazor.WebGL.WebGLContext.StopLoop", stopLoop);
     Blazor.registerFunction("Blazor.GameBase.Start", gameStart);
+
+    Module.asmLibraryArg._mono_wasm_invoke_js_with_args = 
+        function(handle : number, method : number, args : number, unused : number)
+        {
+            const argsCount = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(args) + 4);
+            const argsStart = Blazor.platform.getObjectFieldsBaseAddress(args) + 8;
+
+            invokeUnmarshalled.apply(null, new Int32Array(Module.HEAP8.buffer, argsStart, argsCount));
+        };
 
     var dt, last;
     
@@ -264,6 +275,11 @@ function timestamp()
         return registerCanvas(canvas);
     }
 
+    function createMemoryView(address : number, byteSize : number)
+    {
+        return new Int8Array(Module.HEAP8.buffer, address, byteSize);
+    }
+
     function invokeUnmarshalled(canvasId : number, methodId : number)
     {
         canvasId = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(canvasId));
@@ -314,20 +330,20 @@ function timestamp()
             var mode = Blazor.platform.readFloatField(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart]));
             var offset = Blazor.platform.readFloatField(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 1]));
             var type = Blazor.platform.readFloatField(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 2]));
-            var count = Blazor.platform.readFloatField(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 3]));
+            var data = Blazor.platform.readFloatField(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 3]));
 
-            contextHolder.Context.viewport(mode, offset, type, count);
+            contextHolder.Context.viewport(mode, offset, type, data);
         }
         else if(methodId == 6) // vertexAttribPointer
         {
-            var mode = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart]));
-            var offset = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 1]));
+            var index = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart]));
+            var size = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 1]));
             var type = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 2]));
-            var count = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 3]));
-            var arg5 = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 4]));
-            var arg6 = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 5]));
+            var normalized = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 3]));
+            var stride = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 4]));
+            var offset = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 5]));
 
-            contextHolder.Context.vertexAttribPointer(mode, offset, type, count, arg5, arg6);
+            contextHolder.Context.vertexAttribPointer(index, size, type, normalized, stride, offset);
         }
         else if(methodId == 7) // enableVertexAttribArray
         {
@@ -367,22 +383,22 @@ function timestamp()
             if(!uniforms[name])
                 uniforms[name] = contextHolder.Context.getUniformLocation(contextHolder.Programs[programId].Program, name);
 
-            var arg4ArrayStart = Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 3]) + 8;
-            var count : any = new Float32Array(16);
+            var dataStart = Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 3]) + 8;
+            var data : any = new Float32Array(Module.HEAP8.buffer, dataStart, 16);
 
-            for(var i = 0; i < 16; i++)
-                count[i] = Blazor.platform.readFloatField(arg4ArrayStart, i * 4);
+            //console.log("uniformMatrix4fv - " + name);
+            //console.log(data);
 
-            contextHolder.Context.uniformMatrix4fv(uniforms[name], type, count);
+            contextHolder.Context.uniformMatrix4fv(uniforms[name], type, data);
         }
         else if(methodId == 12) // drawElements
         {
             var mode = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart]));
             var offset = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 1]));
             var type = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 2]));
-            var count = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 3]));
+            var data = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 3]));
 
-            contextHolder.Context.drawElements(mode, count, type, offset);
+            contextHolder.Context.drawElements(mode, data, type, offset);
         }
         else if(methodId == 13) // loadTexture
         {
@@ -469,26 +485,34 @@ function timestamp()
         else if(methodId == 16) // uniform[1234][fi][v]
         {
             const programId = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart]));
-            const locationId = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 1]));
+            const locationName = Blazor.platform.toJavaScriptString(arguments[argumentStart + 1]);
             const dimensions = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 2]));
             const type = Blazor.platform.toJavaScriptString(arguments[argumentStart + 3]);
 
+            if(!contextHolder.Programs[programId].Uniforms[locationName])
+            contextHolder.Programs[programId].Uniforms[locationName] = contextHolder.Context.getUniformLocation(contextHolder.Programs[programId].Program, locationName);
+
             const args = [];
 
+            const readFunction = (type == "i" || type == "iv") ? Blazor.platform.readInt32Field : Blazor.platform.readFloatField;
+
             for(var i = argumentStart + 4; i < argumentStart + 4 + dimensions; i++)
-                args.push(Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[i])));
+                args.push(readFunction(Blazor.platform.getObjectFieldsBaseAddress(arguments[i])));
+
+            //console.log("uniform[1234][fi][v] - " + locationName);
+            //console.log(args);
 
             if(type == "i" || type == "f")
             {
-                args.unshift(contextHolder.Programs[programId].Uniforms[locationId]);
+                args.unshift(contextHolder.Programs[programId].Uniforms[locationName]);
                 contextHolder.Context["uniform" + dimensions + type].apply(contextHolder.Context, args);
             }
             else if(type == "iv")
                 contextHolder.Context["uniform" + dimensions + type].call(contextHolder.Context, 
-                    contextHolder.Programs[programId].Uniforms[locationId], new Int32Array(args));
+                    contextHolder.Programs[programId].Uniforms[locationName], new Int32Array(args));
             else if(type == "fv")
                 contextHolder.Context["uniform" + dimensions + type].call(contextHolder.Context, 
-                    contextHolder.Programs[programId].Uniforms[locationId], new Float32Array(args));
+                    contextHolder.Programs[programId].Uniforms[locationName], new Float32Array(args));
         }
         else if(methodId == 17) // createTexture
         {
@@ -567,6 +591,61 @@ function timestamp()
                 context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_T, context.CLAMP_TO_EDGE);
                 context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MIN_FILTER, context.LINEAR);
             }
+        }
+        else if(methodId == 19) // bufferData - float
+        {
+            const context = contextHolder.Context;
+            
+            const target = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart]));
+            const usage = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 2]));
+
+            var dataCount = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 1]) + 4);
+            var dataStart = Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 1]) + 8;
+
+            var bufferData = new Float32Array(dataCount);
+
+            for(var i = 0; i < dataCount; i++)
+                bufferData[i] = Blazor.platform.readFloatField(dataStart + i * 4);
+
+            context.bufferData(target, bufferData, usage);
+        }
+        else if(methodId == 20) // bufferData - size
+        {
+            const context = contextHolder.Context;
+            
+            const target = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart]));
+            const size = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 1]));
+            const usage = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 2]));
+
+            context.bufferData(target, size, usage);
+        }
+        else if(methodId == 21) // bufferData - IVertexFormat
+        {
+            const context = contextHolder.Context;
+            
+            const target = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart]));
+            const elementSize = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 1]));
+            const length = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 3]));
+            const usage = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 4]));
+
+            //const dataCount = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 2]) + 4);
+            const dataStart = Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 2]) + 8;
+
+            const view = createMemoryView(dataStart, length * elementSize);
+            //const uintView = new Uint16Array(view.buffer, dataStart, length * elementSize / 2);
+            //const floatView = new Float32Array(view.buffer, dataStart, length * elementSize / 4);
+
+            //console.log(uintView);
+            //console.log(floatView);
+
+            context.bufferData(target, view, usage);
+        }
+        else if(methodId == 22) // blendFunc
+        {
+            const source = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart]));
+            const destination = Blazor.platform.readInt32Field(Blazor.platform.getObjectFieldsBaseAddress(arguments[argumentStart + 1]));
+        
+            contextHolder.Context.blendFunc(source, destination);
         }
     }
 

@@ -9,5 +9,12 @@
         "**/obj": true,
         "**/.vs": true
     },
-    "javascript.nameSuggestions": false
+    "javascript.nameSuggestions": false,
+    "editor.tokenColorCustomizations": {
+        "[Default Dark+]": {
+            "keywords": "#569cd6",
+            "functions": "#D4D4D4",
+            "variables": "#C4D4F4"
+        }
+    }
 }

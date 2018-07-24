@@ -98,11 +98,13 @@ namespace WebGame
         { 
             float delta = (time - lastTime) / 1000.0f;
 
-            if(game == null || game.Context == null)
-                return;
+            //Stopwatch w = Stopwatch.StartNew();
 
-            game.Draw(delta);
-            game.Update(delta);
+            Draw(delta);
+            Update(delta);
+            
+            //w.Stop();
+            //Console.WriteLine(w.Elapsed.TotalMilliseconds);
 
             lastTime = time;
         }
@@ -150,21 +152,34 @@ namespace WebGame
 
             Task.Run(async () =>
             {
-                InitializeInternal();
+                try
+                {
+                    InitializeInternal();
 
-                await LoadContent();
+                    await LoadContent();
 
-                Context.IsLoopingEnabled = true;
-                Context.Updated += UpdateInternal;
-                //RegisteredFunction.Invoke<object>("WebGame.GameBase.Start");
+                    Context.IsLoopingEnabled = true;
+                    Context.Updated += UpdateInternal;
+                    //RegisteredFunction.Invoke<object>("WebGame.GameBase.Start");
+                }
+                catch(Exception ex)
+                {
+                    Console.Error.WriteLine("Exception occurred while initializing a game");
+                    Console.Error.WriteLine(ex.ToString());
+                }
             });
-        }
+        }   
 
         void IHandleEvent.HandleEvent(EventHandlerInvoker binding, UIEventArgs args)
         {
+            Console.WriteLine("Event: " + args.Type);
+
             if(args is UIKeyboardEventArgs keyboardArgs)
             {
-                
+                Console.WriteLine(keyboardArgs.Type);
+                Console.WriteLine(keyboardArgs.Key);
+                Console.WriteLine(keyboardArgs.Code);
+                Console.WriteLine(keyboardArgs.Repeat);
             }
         }
         #endregion

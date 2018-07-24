@@ -4,7 +4,7 @@ Not really a game right now, but this project is used to test the Blazor.WebGL l
 
 ## Building
 
-**Building an example assumes that you already have [built Blazor.WebGL library](../../README.md#building).**
+**Building an example assumes that you already have [built Blazor.WebGL library](../../#building).**
 
 At the root of the repository run `publish-local.sh` script.
 

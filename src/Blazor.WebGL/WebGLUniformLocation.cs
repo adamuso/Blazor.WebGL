@@ -14,9 +14,9 @@ namespace Blazor.WebGL
             this.Name = name;
         }
 
-        public void Set(Matrix4 matrix, bool transpose = false)
+        public void Set(ref Matrix4 matrix, bool transpose = false)
         {
-            Program.Context.UniformMatrix4fv(this, transpose, matrix);
+            Program.Context.UniformMatrix4fv(this, transpose, ref matrix);
         }
 
         public void Set(float value)

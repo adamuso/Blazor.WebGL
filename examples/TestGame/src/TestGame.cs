@@ -3,273 +3,229 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Blazor.WebGL;
 using Blazor.WebGL.Math;
+using WebGame.Graphics;
 
 namespace WebGame
 {
+
     public class TestGame : GameBase 
     {
-        private WebGLShaderProgram program;
-        private WebGLBuffer cubeBuffer;
-        private WebGLBuffer colorsBuffer;
-        private WebGLBuffer indicesBuffer;
-        private Texture2D texture;
-        private float rotation;
+        private int drawCallCount;
+        private SpriteBatch spriteBatch;
+        private Material material;
+        private SpriteDrawable[] drawables;
+
+        private int benchmarkElementCount;
+        private int benchmarkFrameCount;
+        private float benchmarkSummedFrameTime;
+
+        public Texture2D Texture1 { get; set; }
+        public Texture2D Texture2  { get; set; }
+        public SpriteManager SpriteManager { get; private set; }
 
         protected override void Initialize()
         {
             base.Initialize();
 
-            string vsSource = @"
-                attribute vec4 aVertexPosition;
-                attribute vec2 aTextureCoord;
+            spriteBatch = new SpriteBatch(Context, 200);
+            spriteBatch.Flushed += (sender, e) => drawCallCount++;    
 
-                uniform mat4 uModelViewMatrix;
+            benchmarkElementCount = 100;    
+        }
+
+        protected override async Task LoadContent()
+        {
+            material = new Material();
+            
+            string vsSource = @"
+                attribute vec4 aPosition;
+                attribute vec2 aTexture;
+                attribute vec4 aColor;
+                attribute float aSamplerIndex;
+
                 uniform mat4 uProjectionMatrix;
 
+                varying mediump vec4 vColor;
                 varying highp vec2 vTextureCoord;
+                varying mediump float vSamplerIndex;
 
                 void main(void) {
-                    gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-                    vTextureCoord = aTextureCoord;
+                    gl_Position = uProjectionMatrix * aPosition;
+                    vTextureCoord = aTexture;
+                    vColor = aColor;
+                    vSamplerIndex = aSamplerIndex;
                 }";
                 
             string fsSource = @"
                 varying highp vec2 vTextureCoord;
+                varying mediump vec4 vColor;
+                varying mediump float vSamplerIndex;
 
-                uniform sampler2D uSampler;
+                uniform sampler2D uSampler0;
+                uniform sampler2D uSampler1;
+                uniform sampler2D uSampler2;
+                uniform sampler2D uSampler3;
+                uniform sampler2D uSampler4;
+                uniform sampler2D uSampler5;
+                uniform sampler2D uSampler6;
+                uniform sampler2D uSampler7;
+                uniform sampler2D uSampler8;
+                uniform sampler2D uSampler9;
 
                 void main(void) {
-                    gl_FragColor = texture2D(uSampler, vTextureCoord);
+
+                    mediump vec4 color;
+                
+                    if(vSamplerIndex > -0.5 && vSamplerIndex < 0.5)
+                    {
+                        color = texture2D(uSampler0, vTextureCoord);
+                    }
+                    if(vSamplerIndex > 0.5 && vSamplerIndex < 1.5)
+                    {
+                        color = texture2D(uSampler1, vTextureCoord);
+                    }
+                    if(vSamplerIndex > 1.5 && vSamplerIndex < 2.5)
+                    {
+                        color = texture2D(uSampler2, vTextureCoord);
+                    }
+                    if(vSamplerIndex > 2.5 && vSamplerIndex < 3.5)
+                    {
+                        color = texture2D(uSampler3, vTextureCoord);
+                    }
+                    if(vSamplerIndex > 3.5 && vSamplerIndex < 4.5)
+                    {
+                        color = texture2D(uSampler4, vTextureCoord);
+                    }
+                    if(vSamplerIndex > 4.5 && vSamplerIndex < 5.5)
+                    {
+                        color = texture2D(uSampler5, vTextureCoord);
+                    }
+                    if(vSamplerIndex > 5.5 && vSamplerIndex < 6.5)
+                    {
+                        color = texture2D(uSampler6, vTextureCoord);
+                    }
+                    if(vSamplerIndex > 6.5 && vSamplerIndex < 7.5)
+                    {
+                        color = texture2D(uSampler7, vTextureCoord);
+                    }
+                    if(vSamplerIndex > 7.5 && vSamplerIndex < 8.5)
+                    {
+                        color = texture2D(uSampler8, vTextureCoord);
+                    }
+                    if(vSamplerIndex > 8.5 && vSamplerIndex < 9.5)
+                    {
+                        color = texture2D(uSampler9, vTextureCoord);
+                    }
+                        
+                    gl_FragColor = color * vColor;
                 }";
 
             var vertexShader = Context.CompileShader(ShaderType.VERTEX_SHADER, vsSource);
             var fragmentShader = Context.CompileShader(ShaderType.FRAGMENT_SHADER, fsSource);
 
-            program = Context.CreateShaderProgram();
-            program.Attach(vertexShader);
-            program.Attach(fragmentShader);
+            material.Program = Context.CreateShaderProgram();
+            material.Program.Attach(vertexShader);
+            material.Program.Attach(fragmentShader);
 
-            Console.WriteLine("t1");
-            program.Link();
+            material.Program.Link();
 
-            Console.WriteLine("t2");
-            cubeBuffer = InitializeBuffers();
-        }
+            Texture1 = await Context.LoadTextureAsync("res/birb.jpg");
+            Texture2 = await Context.LoadTextureAsync("res/nyan.png");
 
-        protected override async Task LoadContent()
-        {
-            texture = await Context.LoadTextureAsync("res/birb.jpg");
-        
-            //texture = new Texture2D(Context, 2, 2);
-            //texture.SetData(new Color[] { new Color(1, 0, 0, 1), new Color(0, 1, 0, 1), new Color(0, 0, 1, 1), new Color(1, 1, 0, 1) });
-        }
+            material.Textures = new[] { Texture1 };
 
-        private WebGLBuffer InitializeBuffers()
-        {
-            // Create a buffer for the square's positions.
+            // material.Int32Uniforms = new Dictionary<string,int>() 
+            // { 
+            //     { "uSampler0", 0 },
+            //     { "uSampler1", 1 },
+            //     { "uSampler2", 2 },
+            //     { "uSampler3", 3 },
+            //     { "uSampler4", 4 },
+            //     { "uSampler5", 5 },
+            //     { "uSampler6", 6 },
+            //     { "uSampler7", 7 },
+            //     { "uSampler8", 8 },
+            //     { "uSampler9", 9 }
+            // };
 
-            Console.WriteLine("t3");
-            var buffer = Context.CreateBuffer(BufferType.ARRAY_BUFFER);
-
-            // Select the positionBuffer as the one to apply buffer
-            // operations to from here out.
-
-            Console.WriteLine("t4");
-            buffer.Bind();
-
-            // Now create an array of positions for the square.
-
-            var positions = new float [] 
+            material.Matrix4Uniforms = new Dictionary<string, Matrix4>() 
             {
-                // Front face
-                -1.0f, -1.0f,  1.0f,
-                1.0f, -1.0f,  1.0f,
-                1.0f,  1.0f,  1.0f,
-                -1.0f,  1.0f,  1.0f,
-                
-                // Back face
-                -1.0f, -1.0f, -1.0f,
-                -1.0f,  1.0f, -1.0f,
-                1.0f,  1.0f, -1.0f,
-                1.0f, -1.0f, -1.0f,
-                
-                // Top face
-                -1.0f,  1.0f, -1.0f,
-                -1.0f,  1.0f,  1.0f,
-                1.0f,  1.0f,  1.0f,
-                1.0f,  1.0f, -1.0f,
-                
-                // Bottom face
-                -1.0f, -1.0f, -1.0f,
-                1.0f, -1.0f, -1.0f,
-                1.0f, -1.0f,  1.0f,
-                -1.0f, -1.0f,  1.0f,
-                
-                // Right face
-                1.0f, -1.0f, -1.0f,
-                1.0f,  1.0f, -1.0f,
-                1.0f,  1.0f,  1.0f,
-                1.0f, -1.0f,  1.0f,
-                
-                // Left face
-                -1.0f, -1.0f, -1.0f,
-                -1.0f, -1.0f,  1.0f,
-                -1.0f,  1.0f,  1.0f,
-                -1.0f,  1.0f, -1.0f,
+                { 
+                    "uProjectionMatrix", 
+                    Matrix4.Orthogonal(-Context.Width * 0.5f, -Context.Height * 0.5f, 
+                        Context.Width * 0.5f, Context.Height * 0.5f, -1, 1)
+                }
             };
 
-            // Now pass the list of positions into WebGL to build the
-            // shape. We do this by creating a Float32Array from the
-            // JavaScript array, then use it to fill the current buffer.
+            drawables = new SpriteDrawable[benchmarkElementCount];
+            Random random = new Random();
 
-            Console.WriteLine("t5");
-            buffer.SetData(positions, BufferUsage.STATIC_DRAW);
+            for(int i = 0; i < benchmarkElementCount; i++)
+            {
+                drawables[i] = new SpriteDrawable()
+                {
+                    Color = new Color(1, 1, 1, 1),
+                    Size = new Vector2(100, 100),
+                    SourceRectangle = null,
+                    Texture = Texture1,
+                    Transform = TransformUtils.MakeTransform(
+                        Vector3.Zero,
+                        new Vector3(
+                            (float)random.NextDouble() * Context.Width - Context.Width * 0.5f,
+                            (float)random.NextDouble() * Context.Height - Context.Height * 0.5f, 
+                            0
+                        ),
+                        new Vector3(0, 0, (float)(random.NextDouble() * Math.PI)),
+                        Vector3.One 
+                    )
+                };
+            }
 
-            colorsBuffer = Context.CreateBuffer(BufferType.ARRAY_BUFFER);
-
-            float[] faceColors = {
-                // Front
-                0.0f,  0.0f,
-                1.0f,  0.0f,
-                1.0f,  1.0f,
-                0.0f,  1.0f,
-                // Back
-                0.0f,  0.0f,
-                1.0f,  0.0f,
-                1.0f,  1.0f,
-                0.0f,  1.0f,
-                // Top
-                0.0f,  0.0f,
-                1.0f,  0.0f,
-                1.0f,  1.0f,
-                0.0f,  1.0f,
-                // Bottom
-                0.0f,  0.0f,
-                1.0f,  0.0f,
-                1.0f,  1.0f,
-                0.0f,  1.0f,
-                // Right
-                0.0f,  0.0f,
-                1.0f,  0.0f,
-                1.0f,  1.0f,
-                0.0f,  1.0f,
-                // Left
-                0.0f,  0.0f,
-                1.0f,  0.0f,
-                1.0f,  1.0f,
-                0.0f,  1.0f,
-            };
-
-            // Convert the array of colors into a table for all the vertices.
-            colorsBuffer.Bind();
-            colorsBuffer.SetData(faceColors, BufferUsage.STATIC_DRAW);
-
-            indicesBuffer = Context.CreateBuffer(BufferType.ELEMENT_ARRAY_BUFFER);
-
-            // This array defines each face as two triangles, using the
-            // indices into the vertex array to specify each triangle's
-            // position.
-
-            ushort[] indices = {
-                0,  1,  2,      0,  2,  3,    // front
-                4,  5,  6,      4,  6,  7,    // back
-                8,  9,  10,     8,  10, 11,   // top
-                12, 13, 14,     12, 14, 15,   // bottom
-                16, 17, 18,     16, 18, 19,   // right
-                20, 21, 22,     20, 22, 23,   // left
-            };
-
-            // Now send the element array to GL
-            indicesBuffer.Bind();
-            indicesBuffer.SetData(indices, BufferUsage.STATIC_DRAW);
-
-            return buffer;
+            SpriteManager = new SpriteManager();
         }
-
+        
         protected override void Draw(float delta)
         {
+            drawCallCount = 0;
+
             Context.ClearColor(new Color(0, 0, 0.5f, 1.0f));
             Context.ClearDepth(1.0f);
             Context.Enable(WebGLOption.DEPTH_TEST);
+            Context.Enable(WebGLOption.BLEND);
             Context.DepthFunction(DepthFunction.LEQUAL);
+            Context.BlendFunc(BlendFactor.SRC_ALPHA, BlendFactor.ONE_MINUS_SRC_ALPHA);
 
             Context.Clear(ClearBuffer.COLOR_BUFFER_BIT | ClearBuffer.DEPTH_BUFFER_BIT);
 
-            float fieldOfView = 45.0f * (float)Math.PI / 180.0f;   // in radians
-            float aspect = Context.Width / Context.Height;
-            float zNear = 0.1f;
-            float zFar = 100.0f;
+            Matrix4 projectionMatrix = Matrix4.Orthogonal(-Context.Width * 0.5f, -Context.Height * 0.5f, 
+                Context.Width * 0.5f, Context.Height * 0.5f, -1.0f, 1.0f);
 
-            Matrix4 projectionMatrix = Matrix4.Perspective(fieldOfView, aspect, zNear, zFar);
-        
-            Matrix4 modelViewMatrix = Matrix4.Identity;
-            modelViewMatrix.Translate(new Vector3(-0.0f, 0.0f, -6.0f));
-            modelViewMatrix.Rotate(rotation * 2f, new Vector3(0, 1, 0.7f));
+            spriteBatch.Begin(material);
 
+            foreach(var drawable in drawables)
+                spriteBatch.Draw(drawable); 
+            
+            SpriteManager.Draw(spriteBatch);
+
+            spriteBatch.End();
+
+            //Console.WriteLine(drawCallCount);
+            //Console.WriteLine(1.0f / delta);
+
+            benchmarkFrameCount++;
+            benchmarkSummedFrameTime += delta;
+
+            if(benchmarkSummedFrameTime > 10)
             {
-                int numComponents = 3;  // pull out 2 values per iteration
-                WebGLType type = WebGLType.FLOAT;    // the data in the buffer is 32bit floats
-                bool normalize = false;  // don't normalize
-                int stride = 0;         // how many bytes to get from one set of values to the next
-                                        // 0 = use type and numComponents above
-                int offset = 0;         // how many bytes inside the buffer to start from
-
-                cubeBuffer.Bind();
-
-                program.Attribute("aVertexPosition").VertexAttributePointer(
-                    numComponents,
-                    type,
-                    normalize,
-                    stride,
-                    offset);
-
-                program.Attribute("aVertexPosition").EnableVertexAttributeArray();
-            }
-
-              {
-                int numComponents = 2;
-                WebGLType type = WebGLType.FLOAT;
-                bool normalize = false;
-                int stride = 0;
-                int offset = 0;
-
-                colorsBuffer.Bind();
-
-                program.Attribute("aTextureCoord").VertexAttributePointer(
-                    numComponents,
-                    type,
-                    normalize,
-                    stride,
-                    offset);
-
-                program.Attribute("aTextureCoord").EnableVertexAttributeArray();
-            }
-
-            program.Use();
-
-            program.Uniform("uProjectionMatrix").Set(projectionMatrix);
-            program.Uniform("uModelViewMatrix").Set(modelViewMatrix);
-        
-            indicesBuffer.Bind();
-
-            if(texture == null)
-                return;
-
-            Context.Textures[0] = texture;
-            program.Uniform("uSampler").Set(0);
-
-            {
-                int offset = 0;
-                int vertexCount = 36;
-                Context.DrawElements(WebGLDrawMode.TRIANGLE_STRIP, offset, WebGLType.UNSIGNED_SHORT, vertexCount);
+                Console.WriteLine("FPS: " + 1 / (benchmarkSummedFrameTime / benchmarkFrameCount));
+                benchmarkFrameCount = 0;
+                benchmarkSummedFrameTime = 0;
             }
         }
 
         protected override void Update(float delta)
         {
-            //Console.WriteLine(delta);
-
-            rotation += delta;
+            SpriteManager.Update(delta);
         }
     }
 }

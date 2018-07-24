@@ -5,8 +5,20 @@ using Microsoft.AspNetCore.Blazor;
 using Microsoft.AspNetCore.Blazor.Browser.Interop;
 using Blazor.WebGL.Math;
 
-namespace Blazor.WebGL
+namespace WebAssembly
 {
+    internal static class Runtime
+    {
+        // The exact namespace, type, and method names must match the corresponding entry in
+        // driver.c in the Mono distribution
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.InternalCall)]
+        public static extern TRes InvokeJSWithArgs<TRes>(int handle, string method, object[] args, ref int exception);
+    }   
+}
+
+namespace Blazor.WebGL
+{    
     public class WebGLContext
     {
         #region Statics
@@ -35,6 +47,8 @@ namespace Blazor.WebGL
         private WebGLBuffer currentlyBoundArrayBuffer;
         private WebGLBuffer currentlyBoundElementArrayBuffer;
         private WebGLShaderProgram currentlyUsedShaderProgram;
+
+        private object[] invokeArguments;
 
         private int Id { get; set; }
 
@@ -78,6 +92,8 @@ namespace Blazor.WebGL
 
             Id = RegisteredFunction.Invoke<int>(MethodPrefix + "RegisterCanvasElement", canvas);
             contexts.Add(Id, this);
+
+            invokeArguments = new object[16];
         }
 
         #region Base
@@ -127,6 +143,11 @@ namespace Blazor.WebGL
             //InvokeCanvasMethod("viewport", new object[] { rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height });
         }
 
+        public void BlendFunc(BlendFactor sourceFactor, BlendFactor destinationFactor)
+        {
+            InvokeCanvasMethodUnmarshalled<object>(UnmarshalledCanvasMethod.BlendFunc, sourceFactor, destinationFactor);
+        }
+
         #endregion
 
         #region Shaders
@@ -143,6 +164,7 @@ namespace Blazor.WebGL
             if(!status)
             {
                 string error = InvokeCanvasMethod<string>(0, shaderId, "getShaderInfoLog", new object[0]);
+
                 InvokeCanvasMethod<object>(0, shaderId, "deleteShader", new object[0]);
 
                 throw new WebGLException("Shader cannot be compiled. Error: \n" + error);
@@ -157,74 +179,6 @@ namespace Blazor.WebGL
 
             return new WebGLShaderProgram(this, programId);
         }
-
-        private void SetProgramUniformOld(WebGLUniformLocation location, int dimensions, string type, object value)
-        {
-            if(currentlyUsedShaderProgram != location.Program)
-                throw new WebGLException("Program of this location is not bound.");
-
-            object[] args;
-
-            if(dimensions < 1 || dimensions > 4)
-                throw new ArgumentOutOfRangeException("dimensions");
-
-            if(type == "f")
-            {
-                if(value is float[] && ((float[])value).Length == dimensions)
-                {
-                    args = new object[dimensions + 1];
-                    Array.Copy((float[])value, 0, args, 1, dimensions);
-                    args[0] = location;
-
-                }
-                else if(value is float)
-                {
-                    args = new object[] { location, value };
-                }
-                else
-                    throw new ArgumentException("Values is invalid for the specified type and dimensions", "value");
-
-            }
-            else if(type == "i")
-            {
-                if(value is int[] && ((int[])value).Length == dimensions)
-                {
-                    args = new object[dimensions + 1];
-                    Array.Copy((int[])value, 0, args, 1, dimensions);
-                    args[0] = location;
-
-                }
-                else if(value is int)
-                {
-                    args = new object[] { location, value };
-                }
-                else
-                    throw new ArgumentException("Values is invalid for the specified type and dimensions", "value");
-            }
-            else if(type == "fv")
-            {
-                if(value is float[] && ((float[])value).Length == dimensions)
-                {
-                    args = new object[] { location, new ContextObject(ContextType.WrapIntoFloat32Array, value) };
-                }
-                else
-                    throw new ArgumentException("Values is invalid for the specified type and dimensions", "value");
-            }
-            else if(type == "iv")
-            {
-                if(value is int[] && ((int[])value).Length == dimensions)
-                {
-                    args = new object[] { location, new ContextObject(ContextType.WrapIntoInt32Array, value) };
-                }
-                else
-                    throw new ArgumentException("Values is invalid for the specified type and dimensions", "value");
-            }
-            else
-                throw new ArgumentException("Type is invalid", "type");
-                
-            InvokeCanvasMethod("uniform" + dimensions + type, args);
-        }
-
         internal void SetProgramUniform(WebGLUniformLocation location, int dimensions, string type, object value)
         {
             if(currentlyUsedShaderProgram != location.Program)
@@ -235,7 +189,7 @@ namespace Blazor.WebGL
 
             object[] args = new object[4 + dimensions];
             args[0] = location.Program.Id;
-            args[1] = location.Id;
+            args[1] = location.Name;
             args[2] = dimensions;
             args[3] = type;
 
@@ -272,13 +226,7 @@ namespace Blazor.WebGL
             InvokeCanvasMethodUnmarshalled<object>(UnmarshalledCanvasMethod.Uniform1234fiv, args);
         }
 
-        internal void SetProgramMatrixUniform(WebGLUniformLocation location, int dimensions, bool transpose, float[] value)
-        {
-            InvokeCanvasMethod("uniformMatrix" + dimensions + "fv", new object[] { location, transpose, 
-                new ContextObject(ContextType.WrapIntoFloat32Array, value) });            
-        }
-
-        internal void UniformMatrix4fv(WebGLUniformLocation location, bool transpose, Matrix4 value)
+        internal void UniformMatrix4fv(WebGLUniformLocation location, bool transpose, ref Matrix4 value)
         {
             int transposeInt = transpose ? 1 : 0;
             InvokeCanvasMethodUnmarshalled<object>(UnmarshalledCanvasMethod.UniformMatrix4fv, location.Program.Id, location.Name, transpose, value.ToArray());
@@ -297,11 +245,11 @@ namespace Blazor.WebGL
 
         #region Buffers
         
-        public WebGLBuffer CreateBuffer(BufferType type)
+        public WebGLBuffer CreateBuffer(BufferType type, BufferUsage usage) 
         {
             int bufferId = RegisteredFunction.Invoke<int>(MethodPrefix + "CreateBuffer", Id); 
 
-            return new WebGLBuffer(this, bufferId, type);
+            return new WebGLBuffer(this, bufferId, type, usage);
         }
 
         internal void BindBuffer(WebGLBuffer buffer)
@@ -316,16 +264,33 @@ namespace Blazor.WebGL
                 currentlyBoundElementArrayBuffer = buffer;
         }
 
-        internal void BufferData(WebGLBuffer buffer, float[] data, BufferUsage usage)
+        internal void BufferData(WebGLBuffer buffer, float[] data)
         {
-            InvokeCanvasMethod("bufferData", 
-                new object[] { (int)buffer.Type, new ContextObject(ContextType.WrapIntoFloat32Array, data), (int)usage });
+            InvokeCanvasMethodUnmarshalled<object>(UnmarshalledCanvasMethod.BufferData, buffer.Type, data, buffer.Usage);
+
+            // InvokeCanvasMethod("bufferData", 
+            //     new object[] { (int)buffer.Type, new ContextObject(ContextType.WrapIntoFloat32Array, data), (int)usage });
         }
 
-        internal void BufferData(WebGLBuffer buffer, ushort[] data, BufferUsage usage)
+        internal void BufferData(WebGLBuffer buffer, int size)
         {
-            InvokeCanvasMethod("bufferData", 
-                new object[] { (int)buffer.Type, new ContextObject(ContextType.WrapIntoUInt16Array, data), (int)usage });
+            InvokeCanvasMethodUnmarshalled<object>(UnmarshalledCanvasMethod.BufferDataSize, buffer.Type, size, buffer.Usage);
+
+            // InvokeCanvasMethod("bufferData", 
+            //     new object[] { (int)buffer.Type, new ContextObject(ContextType.WrapIntoFloat32Array, data), (int)usage });
+        }
+
+        internal void BufferData<T>(WebGLBuffer buffer, T[] data, int elementByteSize, 
+            int length) 
+            where T : struct
+        {
+            InvokeCanvasMethodUnmarshalled<object>(UnmarshalledCanvasMethod.BufferDataStruct, buffer.Type, 
+                elementByteSize, data, length, buffer.Usage);
+        }
+
+        internal void BufferData(WebGLBuffer buffer, ushort[] data)
+        {
+            BufferData(buffer, data, 2, data.Length);
         }
 
         internal void VertexAttributePointer(long index, int size, WebGLType type, bool normalized, int stride, int offset)
@@ -434,19 +399,25 @@ namespace Blazor.WebGL
             return RegisteredFunction.Invoke<T>(MethodPrefix + "InvokeWithContext", Id, contextType, contextId, method, args);
         }
 
-        private T InvokeCanvasMethodUnmarshalled<T>(UnmarshalledCanvasMethod method, params object[] args)
+        private T InvokeCanvasMethodUnmarshalled2<T>(UnmarshalledCanvasMethod method, params object[] args)
         {
             object[] realArgs = new object[args.Length + 2];
             Array.Copy(args, 0, realArgs, 2, args.Length);
             realArgs[0] = Id;
             realArgs[1] = (int)method;
 
-            return RegisteredFunction.InvokeUnmarshalled<T>(MethodPrefix + "InvokeUnmarshalled", realArgs);
+            // return RegisteredFunction.InvokeUnmarshalled<T>(MethodPrefix + "InvokeUnmarshalled", realArgs);
+            return RegisteredFunction.InvokeUnmarshalled<T>("G", realArgs);
         }
 
-        internal void InvokeCanvasMethod(string method, object[] args)
+        private T InvokeCanvasMethodUnmarshalled<T>(UnmarshalledCanvasMethod method, params object[] args)
         {
-            RegisteredFunction.Invoke<ElementRef>(MethodPrefix + "Invoke", Id, method, args);
+            invokeArguments[0] = Id;
+            invokeArguments[1] = (int)method;
+            Array.Copy(args, 0, invokeArguments, 2, args.Length);
+
+            int a = 10;
+            return WebAssembly.Runtime.InvokeJSWithArgs<T>(0, null, invokeArguments, ref a);
         }
 
         private enum UnmarshalledCanvasMethod : int
@@ -469,7 +440,11 @@ namespace Blazor.WebGL
             ActiveTexture = 15,
             Uniform1234fiv = 16,
             CreateTexture = 17,
-            SetTextureData = 18
+            SetTextureData = 18,
+            BufferData = 19,
+            BufferDataSize = 20,
+            BufferDataStruct = 21,
+            BlendFunc = 22
         }
     }
 }

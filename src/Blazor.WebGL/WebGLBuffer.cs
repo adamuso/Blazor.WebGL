@@ -6,14 +6,16 @@ namespace Blazor.WebGL
 
         private WebGLContext context;
 
-        public int Id { get; set; }
-        public BufferType Type { get; set; }
+        public int Id { get; private set; }
+        public BufferType Type { get; private set; }
+        public BufferUsage Usage { get; private set; }
 
-        public WebGLBuffer(WebGLContext context, int id, BufferType type)
+        public WebGLBuffer(WebGLContext context, int id, BufferType type, BufferUsage usage)
         {
             this.context = context;
             this.Id = id;
             this.Type = type;
+            this.Usage = usage;
         }
 
         public void Bind()
@@ -21,14 +23,31 @@ namespace Blazor.WebGL
             context.BindBuffer(this);
         }
 
-        public void SetData(float[] data, BufferUsage usage)
+        public void SetDataSize(int byteSize)
         {
-            context.BufferData(this, data, usage);
+            context.BufferData(this, byteSize);
         }
 
-        public void SetData(ushort[] data, BufferUsage usage)
+        public void SetData<T>(T[] data, int itemByteSize, int length)
+            where T : struct
         {
-            context.BufferData(this, data, usage);
+            context.BufferData(this, data, itemByteSize, length);
+        }
+
+        public void SetData<T>(T[] data, int length)
+            where T : struct
+        {
+            context.BufferData(this, data, System.Runtime.InteropServices.Marshal.SizeOf<T>(), length);
+        }
+
+        public void SetData(float[] data)
+        {
+            context.BufferData(this, data);
+        }
+
+        public void SetData(ushort[] data)
+        {
+            context.BufferData(this, data);
         }
     }
 }

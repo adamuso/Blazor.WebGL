@@ -67,22 +67,51 @@ namespace Blazor.WebGL.Math
             return @out;
         }
 
-        private float m11; // out[0]
-        private float m12; // out[1]
-        private float m13; // out[2]
-        private float m14; // out[3]
-        private float m21; // out[4]
-        private float m22; // out[5]
-        private float m23; // out[6]
-        private float m24; // out[7]
-        private float m31; // out[8]
-        private float m32; // out[9]
-        private float m33; // out[10]
-        private float m34; // out[11]
-        private float m41; // out[12]
-        private float m42; // out[13]
-        private float m43; // out[14]
-        private float m44; // out[15]
+        public static Matrix4 Orthogonal(float left, float top, float right, float bottom,
+            float near, float far) 
+        {
+            float lr = 1 / (left - right);
+            float bt = 1 / (bottom - top);
+            float nf = 1 / (near - far);
+
+            Matrix4 @out;
+
+            @out.m11= -2 * lr;
+            @out.m12 = 0;
+            @out.m13= 0;
+            @out.m14= 0;
+            @out.m21= 0;
+            @out.m22 = -2 * bt;
+            @out.m23 = 0;
+            @out.m24= 0;
+            @out.m31= 0;
+            @out.m32= 0;
+            @out.m33 = 2 * nf;
+            @out.m34= 0;
+            @out.m41= (left + right) * lr;
+            @out.m42= (top + bottom) * bt;
+            @out.m43= (far + near) * nf;
+            @out.m44= 1;
+
+            return @out;
+        }
+
+        public float m11; // out[0]
+        public float m12; // out[1]
+        public float m13; // out[2]
+        public float m14; // out[3]
+        public float m21; // out[4]
+        public float m22; // out[5]
+        public float m23; // out[6]
+        public float m24; // out[7]
+        public float m31; // out[8]
+        public float m32; // out[9]
+        public float m33; // out[10]
+        public float m34; // out[11]
+        public float m41; // out[12]
+        public float m42; // out[13]
+        public float m43; // out[14]
+        public float m44; // out[15]
 
         public void Translate(Vector3 vector) 
         {
@@ -144,6 +173,23 @@ namespace Blazor.WebGL.Math
             m34 = a03 * b20 + a13 * b21 + a23 * b22;
         }
 
+        public void Scale(Vector3 scale) 
+        {
+            float x = scale.X, y = scale.Y, z = scale.Z;
+
+            m11 = m11 * x;
+            m12 = m12 * x;
+            m13 = m13 * x;
+            m14 = m14 * x;
+            m21 = m21 * y;
+            m22 = m22 * y;
+            m23 = m23 * y;
+            m24 = m24 * y;
+            m31 = m31 * z;
+            m32 = m32 * z;
+            m33 = m33 * z;
+            m34 = m34 * z;
+        }
 
         public float[] ToArray()
         {
